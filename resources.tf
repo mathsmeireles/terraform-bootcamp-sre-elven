@@ -1,4 +1,4 @@
-resource "aws_vpc" "lab-vpc" {
+resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr_block
   instance_tenancy     = "default"
   enable_dns_hostnames = true
@@ -10,8 +10,8 @@ resource "aws_vpc" "lab-vpc" {
   }
 }
 
-resource "aws_subnet" "pub_subnet" {
-  vpc_id     = aws_vpc.lab-vpc.id
+resource "aws_subnet" "public" {
+  vpc_id     = aws_vpc.this.id
   cidr_block = var.pub_subnet_cidr_block
 
   tags = {
@@ -21,8 +21,8 @@ resource "aws_subnet" "pub_subnet" {
   }
 }
 
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.lab-vpc.id
+resource "aws_internet_gateway" "this" {
+  vpc_id = aws_vpc.this.id
 
   tags = {
     Name        = var.igw_name
@@ -31,12 +31,12 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-resource "aws_route_table" "rtb_pub_subnet" {
-  vpc_id = aws_vpc.lab-vpc.id
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.this.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
+    gateway_id = aws_internet_gateway.this.id
   }
 
   tags = {
@@ -46,15 +46,15 @@ resource "aws_route_table" "rtb_pub_subnet" {
   }
 }
 
-resource "aws_route_table_association" "example" {
-  subnet_id      = aws_subnet.pub_subnet.id
-  route_table_id = aws_route_table.rtb_pub_subnet.id
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
 }
 
-resource "aws_security_group" "sg_allow_ssh_and_http" {
+resource "aws_security_group" "allow_ssh_and_http" {
   name        = var.sg_name
   description = "Allow SSH and HTTP inbound traffic"
-  vpc_id      = aws_vpc.lab-vpc.id
+  vpc_id      = aws_vpc.this.id
 
   ingress {
     description = "SSH"
@@ -87,10 +87,10 @@ resource "aws_security_group" "sg_allow_ssh_and_http" {
   }
 }
 
-resource "aws_instance" "wordpress_instance" {
+resource "aws_instance" "wordpress" {
   ami                         = data.aws_ami.ubuntu.id
   instance_type               = var.instance_type
-  vpc_security_group_ids      = [aws_security_group.sg_allow_ssh_and_http.id]
+  vpc_security_group_ids      = [aws_security_group.allow_ssh_and_http.id]
   key_name                    = var.key_aws_instance
   user_data                   = <<-EOF
     #!/bin/bash 
@@ -100,7 +100,7 @@ resource "aws_instance" "wordpress_instance" {
     sudo ansible-playbook wordpress.yml
     EOF
   monitoring                  = true
-  subnet_id                   = aws_subnet.pub_subnet.id
+  subnet_id                   = aws_subnet.public.id
   associate_public_ip_address = true
 
   tags = {
